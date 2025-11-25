@@ -113,25 +113,29 @@ def save_best_model(results_df, trained_models, X_train, y_train):
     # Retrain on full data
     best_model.fit(X_train, y_train)
     
-    # Save pickle
+    # Save pickle → ini yang akan dipakai Docker
     pickle_path = f"data/best_model_{best_name}.pkl"
     with open(pickle_path, "wb") as f:
         pickle.dump(best_model, f)
     
-    # Log ke PARENT run (penting untuk CI/CD)
-    mlflow.sklearn.log_model(
-        best_model,
-        artifact_path="best_model",
-        input_example=X_train[:5],
-        signature=mlflow.models.infer_signature(X_train, best_model.predict(X_train[:5]))
-    )
-    mlflow.log_artifact(pickle_path)
+    # Log ke parent run (WAJIB)
+    mlflow.set_tag("best_model", best_name)  # tambahan
     mlflow.log_param("best_model_name", best_name)
     mlflow.log_metric("best_accuracy", best_row["Accuracy"])
     
-    print(f"\nBest Model: {best_name} (Accuracy: {best_row['Accuracy']:.4f})")
+    # Log model sebagai "best_model" → untuk mlflow build-docker
+    mlflow.sklearn.log_model(
+        sk_model=best_model,
+        artifact_path="best_model",  
+        input_example=X_train[:5],
+        signature=mlflow.models.infer_signature(X_train, best_model.predict(X_train[:5]))
+    )
+    
+    # Log file pickle juga
+    mlflow.log_artifact(pickle_path)
+    
+    print(f"BEST MODEL SAVED: {best_name} → {pickle_path}")
     return best_name
-
 
 def main():
     args = parse_arguments()
