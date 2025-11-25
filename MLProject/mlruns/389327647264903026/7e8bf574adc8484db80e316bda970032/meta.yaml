@@ -1,0 +1,15 @@
+artifact_uri: file:D:/Eksperiment_SML_Saepulloh/workflow-CI-Saepulloh/mlproject/mlruns/389327647264903026/7e8bf574adc8484db80e316bda970032/artifacts
+end_time: 1763990701825
+entry_point_name: ''
+experiment_id: '389327647264903026'
+lifecycle_stage: active
+run_id: 7e8bf574adc8484db80e316bda970032
+run_name: Decision_Tree
+run_uuid: 7e8bf574adc8484db80e316bda970032
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1763990694156
+status: 3
+tags: []
+user_id: saepu

@@ -1,0 +1,15 @@
+artifact_uri: file:D:/Eksperiment_SML_Saepulloh/workflow-CI-Saepulloh/mlproject/mlruns/389327647264903026/4264d016d657492687f4fd232f2dd170/artifacts
+end_time: 1763991002922
+entry_point_name: ''
+experiment_id: '389327647264903026'
+lifecycle_stage: active
+run_id: 4264d016d657492687f4fd232f2dd170
+run_name: SVM
+run_uuid: 4264d016d657492687f4fd232f2dd170
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1763990994865
+status: 3
+tags: []
+user_id: saepu

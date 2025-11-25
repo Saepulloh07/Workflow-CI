@@ -1,0 +1,15 @@
+artifact_uri: file:D:/Eksperiment_SML_Saepulloh/workflow-CI-Saepulloh/mlproject/mlruns/389327647264903026/c682d946b4324c2889323f41f7ae155f/artifacts
+end_time: 1763990693977
+entry_point_name: ''
+experiment_id: '389327647264903026'
+lifecycle_stage: active
+run_id: c682d946b4324c2889323f41f7ae155f
+run_name: Logistic_Regression
+run_uuid: c682d946b4324c2889323f41f7ae155f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1763990683219
+status: 3
+tags: []
+user_id: saepu

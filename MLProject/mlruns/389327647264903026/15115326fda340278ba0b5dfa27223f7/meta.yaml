@@ -1,0 +1,15 @@
+artifact_uri: file:D:/Eksperiment_SML_Saepulloh/workflow-CI-Saepulloh/mlproject/mlruns/389327647264903026/15115326fda340278ba0b5dfa27223f7/artifacts
+end_time: 1764000417169
+entry_point_name: ''
+experiment_id: '389327647264903026'
+lifecycle_stage: active
+run_id: 15115326fda340278ba0b5dfa27223f7
+run_name: Random_Forest
+run_uuid: 15115326fda340278ba0b5dfa27223f7
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1764000409679
+status: 3
+tags: []
+user_id: saepu

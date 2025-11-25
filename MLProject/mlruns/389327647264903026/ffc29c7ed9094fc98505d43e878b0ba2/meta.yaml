@@ -1,0 +1,15 @@
+artifact_uri: file:D:/Eksperiment_SML_Saepulloh/workflow-CI-Saepulloh/mlproject/mlruns/389327647264903026/ffc29c7ed9094fc98505d43e878b0ba2/artifacts
+end_time: 1764000449377
+entry_point_name: ''
+experiment_id: '389327647264903026'
+lifecycle_stage: active
+run_id: ffc29c7ed9094fc98505d43e878b0ba2
+run_name: Heart_Disease_Training_Run
+run_uuid: ffc29c7ed9094fc98505d43e878b0ba2
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1764000393547
+status: 3
+tags: []
+user_id: saepu

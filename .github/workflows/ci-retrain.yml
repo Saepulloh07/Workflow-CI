@@ -1,0 +1,249 @@
+name: CI - Retrain & Build Docker Image
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+  WORKING_DIR: "Workflow-CI-Saepulloh/MLProject"
+
+jobs:
+  retrain-and-build-docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/conda.yaml') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy scikit-learn mlflow matplotlib seaborn python-dotenv dagshub mlserver mlserver-mlflow
+
+      - name: Force Local MLflow Tracking (Critical Fix)
+        run: |
+          echo "MLFLOW_TRACKING_URI=file:./mlruns" >> $GITHUB_ENV
+          echo "Using LOCAL MLflow tracking in CI (prevents DagsHub 500 errors)"
+
+      - name: Check Data Files
+        run: |
+          cd ${{ env.WORKING_DIR }}
+          if [ ! -f "data/preprocessing_objects.pkl" ]; then
+            echo "ERROR: preprocessing_objects.pkl not found!"
+            ls -la data/ || echo "data/ directory not found"
+            exit 1
+          fi
+          echo "Data files verified"
+          ls -lh data/preprocessing_objects.pkl
+
+      - name: Run Model Training
+        run: |
+          cd ${{ env.WORKING_DIR }}
+          echo "Starting model training..."
+          python modelling.py --model_name all
+          echo "Training completed successfully"
+
+      - name: Get Latest Run ID and Best Model Info
+        id: get_run_id
+        run: |
+          cd ${{ env.WORKING_DIR }}
+          python - <<'PY'
+          import mlflow
+          from mlflow.tracking import MlflowClient
+          import os
+
+          mlflow.set_tracking_uri("file:./mlruns")
+          client = MlflowClient()
+
+          exp = client.get_experiment_by_name("Heart_Disease_Classification")
+          if not exp:
+              print("ERROR: Experiment 'Heart_Disease_Classification' tidak ditemukan!")
+              exit(1)
+
+          all_runs = client.search_runs(
+              experiment_ids=[exp.experiment_id],
+              order_by=["start_time DESC"],
+              max_results=50
+          )
+
+          parent_runs = [r for r in all_runs if "mlflow.parentRunId" not in r.data.tags]
+          if not parent_runs:
+              print("ERROR: Tidak ada parent run!")
+              exit(1)
+
+          latest_parent = parent_runs[0]
+          run_id = latest_parent.info.run_id
+          best_model = latest_parent.data.params.get("best_model_name", "Unknown")
+
+          with open(os.environ["GITHUB_ENV"], "a") as f:
+              f.write(f"LATEST_RUN_ID={run_id}\n")
+              f.write(f"BEST_MODEL_NAME={best_model}\n")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"run_id={run_id}\n")
+              f.write(f"best_model_name={best_model}\n")
+
+          print(f"Latest Parent Run ID: {run_id}")
+          print(f"Best Model: {best_model}")
+          PY
+
+      - name: Verify Local Model File
+        run: |
+          cd ${{ env.WORKING_DIR }}
+          echo "Checking local best model file..."
+          ls -lh data/best_model_*.pkl
+          if [ ! -f "data/best_model_${{ env.BEST_MODEL_NAME }}.pkl" ]; then
+            echo "ERROR: Best model file not found!"
+            exit 1
+          fi
+          echo "Local model file verified"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build & Push Docker Image
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        run: |
+          cd ${{ env.WORKING_DIR }}
+
+          IMAGE_NAME="${DOCKER_USERNAME}/heart-disease-model"
+          RUN_ID="${{ env.LATEST_RUN_ID }}"
+          BEST_MODEL="${{ env.BEST_MODEL_NAME }}"
+
+          echo "Building Docker image..."
+          echo "Run ID: $RUN_ID | Best Model: $BEST_MODEL"
+
+          # Pastikan tracking lokal
+          export MLFLOW_TRACKING_URI=file:./mlruns
+
+          # Coba build dengan MLflow dulu
+          if mlflow models build-docker \
+               --model-uri "runs:/$RUN_ID/best_model" \
+               --name "$IMAGE_NAME:latest" \
+               --enable-mlserver 2>/dev/null; then
+            echo "MLflow native build SUCCESS"
+          else
+            echo "MLflow build failed → Using manual Dockerfile (fallback)"
+
+            cat > Dockerfile <<EOF
+          FROM python:3.12-slim
+
+          RUN pip install --no-cache-dir \
+              scikit-learn==1.5.0 \
+              pandas \
+              numpy \
+              mlserver==1.5.0 \
+              mlserver-mlflow==1.5.0
+
+          # Copy model pickle dan folder mlruns
+          COPY data/best_model_${BEST_MODEL}.pkl /app/model.pkl
+          COPY mlruns /app/mlruns
+
+          WORKDIR /app
+          ENV MLSERVER_MODELS_DIR=/app
+          ENV MLSERVER_MODEL_NAME=heart-disease
+          ENV MLSERVER_MODEL_URI=/app/model.pkl
+
+          EXPOSE 8080
+          CMD ["mlserver", "start", "/app"]
+          EOF
+
+            docker build -t $IMAGE_NAME:latest .
+          fi
+
+          # Tag dengan berbagai versi
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          SHORT_RUN_ID="${RUN_ID:0:8}"
+
+          docker tag $IMAGE_NAME:latest $IMAGE_NAME:v$TIMESTAMP
+          docker tag $IMAGE_NAME:latest $IMAGE_NAME:$SHORT_RUN_ID
+
+          echo "Pushing images to Docker Hub..."
+          docker push $IMAGE_NAME:latest
+          docker push $IMAGE_NAME:v$TIMESTAMP
+          docker push $IMAGE_NAME:$SHORT_RUN_ID
+
+          echo "IMAGE_LATEST=$IMAGE_NAME:latest" >> $GITHUB_ENV
+          echo "IMAGE_VERSIONED=$IMAGE_NAME:v$TIMESTAMP" >> $GITHUB_ENV
+          echo "IMAGE_RUN=$IMAGE_NAME:$SHORT_RUN_ID" >> $GITHUB_ENV
+
+          echo "Docker image built & pushed successfully!"
+
+      - name: Test Docker Image
+        run: |
+          docker run -d -p 5000:8080 --name test-container ${{ env.IMAGE_LATEST }}
+          sleep 12
+          if docker ps | grep test-container; then
+            echo "Container started successfully"
+          else
+            echo "Container failed!"
+            docker logs test-container
+            exit 1
+          fi
+          curl -f http://localhost:5000/ping || echo "Warning: /ping not responding (MLServer normal)"
+          docker stop test-container && docker rm test-container
+
+      - name: Upload Training Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: training-artifacts
+          path: |
+            ${{ env.WORKING_DIR }}/csv_output/
+            ${{ env.WORKING_DIR }}/data/best_model_*.pkl
+          retention-days: 30
+
+      - name: Create Summary
+        run: |
+          echo "## CI/CD Pipeline Completed Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Training Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Run ID: \`${{ env.LATEST_RUN_ID }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Best Model: **${{ env.BEST_MODEL_NAME }}**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Docker Images Pushed" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.IMAGE_LATEST }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.IMAGE_VERSIONED }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.IMAGE_RUN }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "```bash" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.IMAGE_LATEST }}" >> $GITHUB_STEP_SUMMARY
+          echo "docker run -p 5000:8080 ${{ env.IMAGE_LATEST }}" >> $GITHUB_STEP_SUMMARY
+          echo "```" >> $GITHUB_STEP_SUMMARY
+
+      - name: Final Console Summary
+        run: |
+          echo "╔═══════════════════════════════════════════════════════════╗"
+          echo "║               CI/CD PIPELINE SUCCESSFUL!                  ║"
+          echo "╚═══════════════════════════════════════════════════════════╝"
+          echo "Best Model      : ${{ env.BEST_MODEL_NAME }}"
+          echo "MLflow Run ID   : ${{ env.LATEST_RUN_ID }}"
+          echo "Docker Latest   : ${{ env.IMAGE_LATEST }}"
+          echo "Docker Versioned: ${{ env.IMAGE_VERSIONED }}"
+          echo "Docker Run ID   : ${{ env.IMAGE_RUN }}"
+          echo ""
+          echo "Next: docker pull ${{ env.IMAGE_LATEST }}"

@@ -1,0 +1,15 @@
+artifact_uri: file:D:/Eksperiment_SML_Saepulloh/workflow-CI-Saepulloh/mlproject/mlruns/389327647264903026/24518a6838d4450fa663f62ce9d53dbd/artifacts
+end_time: 1763990827028
+entry_point_name: ''
+experiment_id: '389327647264903026'
+lifecycle_stage: active
+run_id: 24518a6838d4450fa663f62ce9d53dbd
+run_name: Naive_Bayes
+run_uuid: 24518a6838d4450fa663f62ce9d53dbd
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1763990820216
+status: 3
+tags: []
+user_id: saepu

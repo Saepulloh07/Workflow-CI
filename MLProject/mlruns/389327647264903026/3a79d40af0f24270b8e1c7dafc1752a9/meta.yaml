@@ -1,0 +1,15 @@
+artifact_uri: file:D:/Eksperiment_SML_Saepulloh/workflow-CI-Saepulloh/mlproject/mlruns/389327647264903026/3a79d40af0f24270b8e1c7dafc1752a9/artifacts
+end_time: 1763990994722
+entry_point_name: ''
+experiment_id: '389327647264903026'
+lifecycle_stage: active
+run_id: 3a79d40af0f24270b8e1c7dafc1752a9
+run_name: Gradient_Boosting
+run_uuid: 3a79d40af0f24270b8e1c7dafc1752a9
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1763990987249
+status: 3
+tags: []
+user_id: saepu

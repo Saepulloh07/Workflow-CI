@@ -1,0 +1,38 @@
+artifact_path: model
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.13.9
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.7.2
+mlflow_version: 2.19.0
+model_size_bytes: 5318
+model_uuid: f5d2be2fa0664a69a2fadda3ff91b2a0
+run_id: 9d0f3136384b402bb8970a096242214f
+saved_input_example_info:
+  artifact_path: input_example.json
+  pandas_orient: split
+  serving_input_path: serving_input_example.json
+  type: dataframe
+signature:
+  inputs: '[{"type": "double", "name": "usia", "required": true}, {"type": "double",
+    "name": "jenis_kelamin", "required": true}, {"type": "double", "name": "tipe_nyeri_dada",
+    "required": true}, {"type": "double", "name": "tekanan_darah_istirahat", "required":
+    true}, {"type": "double", "name": "kolesterol", "required": true}, {"type": "double",
+    "name": "gula_darah_puasa", "required": true}, {"type": "double", "name": "hasil_ecg_istirahat",
+    "required": true}, {"type": "double", "name": "thalch", "required": true}, {"type":
+    "double", "name": "angina_olahraga", "required": true}, {"type": "double", "name":
+    "depresi_st", "required": true}, {"type": "double", "name": "kemiringan_st", "required":
+    true}, {"type": "double", "name": "jumlah_pembuluh_darah", "required": true},
+    {"type": "double", "name": "thalassemia", "required": true}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "int64", "shape": [-1]}}]'
+  params: null
+utc_time_created: '2025-11-24 13:30:12.036478'

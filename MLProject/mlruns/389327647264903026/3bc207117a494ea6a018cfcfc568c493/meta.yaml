@@ -1,0 +1,15 @@
+artifact_uri: file:D:/Eksperiment_SML_Saepulloh/workflow-CI-Saepulloh/mlproject/mlruns/389327647264903026/3bc207117a494ea6a018cfcfc568c493/artifacts
+end_time: 1764000436148
+entry_point_name: ''
+experiment_id: '389327647264903026'
+lifecycle_stage: active
+run_id: 3bc207117a494ea6a018cfcfc568c493
+run_name: KNN
+run_uuid: 3bc207117a494ea6a018cfcfc568c493
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1764000430279
+status: 3
+tags: []
+user_id: saepu

@@ -1,0 +1,16 @@
+digest: a3f7ddfc
+name: dataset
+profile: '{"num_rows": 141, "num_elements": 1833}'
+schema: '{"mlflow_colspec": [{"type": "double", "name": "usia", "required": true},
+  {"type": "double", "name": "jenis_kelamin", "required": true}, {"type": "double",
+  "name": "tipe_nyeri_dada", "required": true}, {"type": "double", "name": "tekanan_darah_istirahat",
+  "required": true}, {"type": "double", "name": "kolesterol", "required": true}, {"type":
+  "double", "name": "gula_darah_puasa", "required": true}, {"type": "double", "name":
+  "hasil_ecg_istirahat", "required": true}, {"type": "double", "name": "thalch", "required":
+  true}, {"type": "double", "name": "angina_olahraga", "required": true}, {"type":
+  "double", "name": "depresi_st", "required": true}, {"type": "double", "name": "kemiringan_st",
+  "required": true}, {"type": "double", "name": "jumlah_pembuluh_darah", "required":
+  true}, {"type": "double", "name": "thalassemia", "required": true}]}'
+source: '{"tags": {"mlflow.user": "saepu", "mlflow.source.name": "modelling.py", "mlflow.source.type":
+  "LOCAL", "mlflow.source.git.commit": "e7c8a60eeecb837a79d3985df13255d25127936b"}}'
+source_type: code
