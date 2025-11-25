@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  WORKING_DIR: "MLProject"
+  WORKING_DIR: MLProject
   IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/heart-disease-model
 
 jobs:
@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Python 3.12
@@ -24,20 +24,21 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Cache pip & MLproject venv
+      - name: Cache pip & virtualenv
         uses: actions/cache@v3
         with:
           path: |
             ~/.cache/pip
             ${{ env.WORKING_DIR }}/.mlflow_venv
-          key: mlproject-${{ hashFiles('MLProject/requirements.txt') }}-${{ runner.os }}-v2
+          key: mlproject-${{ hashFiles('MLProject/requirements.txt') }}-${{ runner.os }}-v3
 
       - name: Install MLflow
         run: |
           python -m pip install --upgrade pip
           pip install "mlflow[extras]"
 
-      - name: Setup Docker Buildx
+      # Docker setup harus di awal
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
@@ -46,11 +47,10 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Force Local MLflow Tracking (Avoid DagsHub 500)
-        run: |
-          echo "MLFLOW_TRACKING_URI=file:./mlruns" >> $GITHUB_ENV
+      - name: Force local MLflow tracking
+        run: echo "MLFLOW_TRACKING_URI=file:./mlruns" >> $GITHUB_ENV
 
-      - name: Verify Preprocessing File
+      - name: Verify preprocessing file exists
         run: |
           cd ${{ env.WORKING_DIR }}
           if [ ! -f "data/preprocessing_objects.pkl" ]; then
@@ -58,44 +58,49 @@ jobs:
             ls -la data/
             exit 1
           fi
-          echo "Preprocessing file found!"
 
-      - name: Run Training via MLproject
+      - name: Run training via MLproject (python_env + local venv)
         run: |
           cd ${{ env.WORKING_DIR }}
-          echo "Starting training using MLproject + requirements.txt"
-
           mlflow run . \
             -P model_name=all \
             --experiment-name=Heart_Disease_Classification \
             --env-manager=local
 
-          echo "Training completed!"
-
-      - name: Detect Best Model File
+      - name: Detect best model file
         id: bestmodel
         run: |
           cd ${{ env.WORKING_DIR }}/data
-          BEST_FILE=$(ls -t best_model_*.pkl 2>/dev/null | head -1)
+          BEST_FILE=$(ls -t best_model_*.pkl 2>/dev/null | head -n1)
           if [ -z "$BEST_FILE" ]; then
-            echo "ERROR: No best_model_*.pkl found in data/"
+            echo "ERROR: No best model file found!"
             ls -la .
             exit 1
           fi
-          BEST_NAME=$(basename "$BEST_FILE" .pkl | sed 's/best_model_//')
-          echo "Best model: $BEST_NAME → $BEST_FILE"
+          BEST_NAME=$(basename "$BEST_FILE" .pkl | sed 's/^best_model_//')
+          echo "Best model: $BEST_NAME ($BEST_FILE)"
           echo "name=$BEST_NAME" >> $GITHUB_OUTPUT
           echo "file=$BEST_FILE" >> $GITHUB_OUTPUT
+
+      - name: Get latest MLflow run ID
+        id: runid
+        run: |
+          cd ${{ env.WORKING_DIR }}/mlruns
+          # Ambil folder run terbaru (contoh: mlruns/0/9f8e3a1b2c4d5e6f7890/)
+          LATEST_RUN_DIR=$(find . -maxdepth 2 -type d -name "[0-9a-f]*" | sort | tail -n1)
+          RUN_ID=$(basename "$LATEST_RUN_DIR")
+          echo "Latest run ID: $RUN_ID"
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
 
       - name: Build & Push Docker Image
         env:
           IMAGE: ${{ env.IMAGE_NAME }}
+          RUN_ID: ${{ steps.runid.outputs.run_id }}
         run: |
           cd ${{ env.WORKING_DIR }}
 
           cat > Dockerfile <<'EOF'
           FROM python:3.12-slim
-
           WORKDIR /app
 
           RUN pip install --no-cache-dir \
@@ -105,7 +110,6 @@ jobs:
               pandas \
               numpy
 
-          # Copy model dari folder data/ (pasti ada)
           COPY data/best_model_*.pkl /app/model.pkl
           COPY mlruns /app/mlruns
 
@@ -117,59 +121,48 @@ jobs:
           CMD ["mlserver", "start", "/app"]
           EOF
 
-          echo "Building Docker image: $IMAGE:latest"
+          # Build & tag
           docker build -t $IMAGE:latest .
 
-          # Tag dengan timestamp & run ID
-          TAG=$(date +%Y%m%d-%H%M%S)
-          RUN_ID=$(ls mlruns/*/*/ | head -1 | xargs basename | cut -c1-8)
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          SHORT_RUN_ID=${RUN_ID:0:8}
 
-          docker tag $IMAGE:latest $IMAGE:$TAG
-          docker tag $IMAGE:latest $IMAGE:$RUN_ID
+          docker tag $IMAGE:latest $IMAGE:$TIMESTAMP
+          docker tag $IMAGE:latest $IMAGE:$SHORT_RUN_ID
 
-          echo "Pushing images..."
+          echo "Pushing Docker images..."
           docker push $IMAGE:latest
-          docker push $IMAGE:$TAG
-          docker push $IMAGE:$RUN_ID
+          docker push $IMAGE:$TIMESTAMP
+          docker push $IMAGE:$SHORT_RUN_ID
 
+          # Export untuk summary
           echo "IMAGE_LATEST=$IMAGE:latest" >> $GITHUB_ENV
-          echo "IMAGE_TAGGED=$IMAGE:$TAG" >> $GITHUB_ENV
-          echo "IMAGE_RUN=$IMAGE:$RUN_ID" >> $GITHUB_ENV
+          echo "IMAGE_TIMESTAMP=$IMAGE:$TIMESTAMP" >> $GITHUB_ENV
+          echo "IMAGE_RUN_ID=$IMAGE:$SHORT_RUN_ID" >> $GITHUB_ENV
 
-      - name: Test Docker Image
+      - name: Test Docker image
         run: |
-          echo "Starting container for testing..."
           docker run -d -p 5000:8080 --name test-model ${{ env.IMAGE_LATEST }}
-          sleep 15
+          sleep 18
 
-          echo "Testing MLServer health endpoint..."
-          if curl -f http://localhost:5000/v2/health/ready; then
-            echo "Model server is READY!"
-          else
-            echo "Health check failed. Logs:"
-            docker logs test-model
-          fi
+          echo "Testing MLServer endpoints..."
+          curl -f http://localhost:5000/v2/health/ready && echo "Server ready"
+          curl -f http://localhost:5000/v2/models/heart-disease/ready || echo "Model still loading (normal)"
 
-          curl -f http://localhost:5000/v2/models/heart-disease/ready || echo "Model not ready yet (normal on first load)"
-
+          docker logs test-model --tail 20
           docker stop test-model && docker rm test-model
-          echo "Docker test completed!"
 
       - name: Summary
         run: |
-          echo "## CI/CD Pipeline Berhasil!" >> $GITHUB_STEP_SUMMARY
+          echo "## CI/CD Pipeline Selesai!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Best Model: **${{ steps.bestmodel.outputs.name }}**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Docker Images:" >> $GITHUB_STEP_SUMMARY
-          echo "- Latest: \`${{ env.IMAGE_LATEST }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Versioned: \`${{ env.IMAGE_TAGGED }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Run ID: \`${{ env.IMAGE_RUN }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Latest     : \`${{ env.IMAGE_LATEST }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Timestamp  : \`${{ env.IMAGE_TIMESTAMP }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Run ID     : \`${{ env.IMAGE_RUN_ID }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "# Pull & run model" >> $GITHUB_STEP_SUMMARY
           echo "docker pull ${{ env.IMAGE_LATEST }}" >> $GITHUB_STEP_SUMMARY
           echo "docker run -p 8080:8080 ${{ env.IMAGE_LATEST }}" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Deploy siap!" >> $GITHUB_STEP_SUMMARY

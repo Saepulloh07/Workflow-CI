@@ -1,4 +1,3 @@
-# MLProject/requirements.txt
 mlflow>=2.8
 scikit-learn==1.5.1
 pandas

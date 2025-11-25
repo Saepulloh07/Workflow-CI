@@ -1,6 +1,4 @@
-# MLProject/MLproject
 name: Heart_Disease_Classification_Project
-
 python_env: requirements.txt
 
 entry_points:
