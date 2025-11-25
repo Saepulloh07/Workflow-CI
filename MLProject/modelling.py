@@ -1,8 +1,3 @@
-"""
-modelling.py - Fixed Version for CI/CD
-Trains multiple ML models for heart disease classification
-"""
-
 import os
 import pickle
 import argparse
