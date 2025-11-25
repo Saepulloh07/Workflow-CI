@@ -1,6 +1,7 @@
+# MLProject/MLproject
 name: Heart_Disease_Classification_Project
 
-conda_env: conda.yaml
+python_env: requirements.txt
 
 entry_points:
   main:
