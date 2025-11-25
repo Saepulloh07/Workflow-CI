@@ -5,5 +5,7 @@ conda_env: conda.yaml
 entry_points:
   main:
     parameters:
-      model_name: { type: string, default: "all" }
-    command: "python modelling.py --model_name {model_name}"
+      model_name:
+        type: string
+        default: "all"
+    command: python modelling.py --model_name {{model_name}}

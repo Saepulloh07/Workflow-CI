@@ -14,3 +14,5 @@ dependencies:
   - pip:
       - python-dotenv
       - dagshub
+      - mlserver==1.5.0
+      - mlserver-mlflow==1.5.0
