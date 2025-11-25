@@ -9,7 +9,7 @@ on:
 
 env:
   PYTHON_VERSION: "3.12"
-  WORKING_DIR: "Workflow-CI-Saepulloh/MLProject"
+  WORKING_DIR: "MLProject"
 
 jobs:
   retrain-and-build-docker:
