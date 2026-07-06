@@ -1,0 +1,12 @@
+{
+  "0": "Kurang Bayar (Nominal CL > Mutasi)",
+  "1": "Lebih Bayar (Nominal CL < Mutasi)",
+  "2": "Cleared & Matched",
+  "3": "Anomaly: Double Input",
+  "4": "Tanggal Closing Tidak Sesuai (Uang masuk, tapi Closing di tanggal beda)",
+  "5": "Pasien Telat Closing / Tanggal Mutasi Tidak Sesuai",
+  "6": "Critical: Ada di Closing, Tidak ada di arus kas",
+  "7": "Unrecorded: Uang Masuk Kasir, Tanpa Closing",
+  "8": "Unrecorded: Uang Masuk TF, Tanpa Closing",
+  "9": "Unrecorded: Multi-Mutasi"
+}

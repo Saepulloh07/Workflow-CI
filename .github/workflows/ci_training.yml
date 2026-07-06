@@ -1,0 +1,64 @@
+name: CI - Train Model & Build Docker
+
+# 1. Trigger Workflow
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Workflow-CI/MLProject/**' # Terpantik jika ada perubahan kode/data di folder ini
+  workflow_dispatch: # Memungkinkan eksekusi manual (tombol Run workflow)
+
+jobs:
+  train-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout repository
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. Setup Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # 3. Install Dependencies
+      - name: Install MLflow & Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mlflow pandas scikit-learn
+
+      # 4. Train Model
+      - name: Run Model Training
+        working-directory: ./Workflow-CI/MLProject
+        run: |
+          python modelling.py
+
+      # 5. Menyimpan Artefak Model ke Repositori (GitHub Artifacts)
+      - name: Upload Model Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-model-artifact
+          path: ./Workflow-CI/MLProject/saved_model/
+          retention-days: 14
+
+      # 6. Login ke Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 7. Build Docker Image menggunakan MLflow dan Push ke Docker Hub
+      - name: Build and Push Docker Image
+        working-directory: ./Workflow-CI/MLProject
+        run: |
+          IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/ml-model-keuangan:latest"
+          
+          echo "Membuat Docker Image dengan MLflow..."
+          mlflow models build-docker -m saved_model -n $IMAGE_NAME
+          
+          echo "Mendorong (Push) Image ke Docker Hub..."
+          docker push $IMAGE_NAME
